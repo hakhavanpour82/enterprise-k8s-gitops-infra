@@ -1,0 +1,9 @@
+---
+- name: Prepare Infrastructure Nodes for Kubernetes Production
+  hosts: k8s_cluster
+  become: true
+  gather_facts: true
+
+  roles:
+    - os_hardening
+    - k8s_install

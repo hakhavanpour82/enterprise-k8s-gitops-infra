@@ -1,0 +1,4 @@
+---
+- name: Restart sysctl
+  command: sysctl --system
+  changed_when: true

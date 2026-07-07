@@ -1,0 +1,132 @@
+---
+- name: Wipe out all custom repository list files to clean drift
+  file:
+    path: "/etc/apt/sources.list.d/{{ item }}"
+    state: absent
+  loop:
+    - docker.list
+    - docker-official.list
+    - kubernetes.list
+    - archive_uri-https_docker_com-noble.list
+
+
+- name: Factory reset Ubuntu 24.04 official DEB822 sources file
+  copy:
+    dest: /etc/apt/sources.list.d/ubuntu.sources
+    content: |
+      Types: deb
+      URIs: http://archive.ubuntu.com/ubuntu
+      Suites: noble noble-updates noble-backports
+      Components: main restricted universe multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://security.ubuntu.com/ubuntu
+      Suites: noble-security
+      Components: main restricted universe multiverse
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+    mode: '0644'
+
+- name: Clear legacy sources.list file
+  copy:
+    dest: /etc/apt/sources.list
+    content: "# Managed by Ansible - Switched to DEB822 format in ubuntu.sources"
+    mode: '0644'
+
+- name: Flush apt lists cache directories completely
+  file:
+    path: /var/lib/apt/lists/
+    state: absent
+
+- name: Recreate fresh apt lists directory
+  file:
+    path: /var/lib/apt/lists/
+    state: directory
+    mode: '0755'
+
+- name: Install prerequisite packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Create keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Docker GPG apt Key
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+
+- name: Add Official Docker Repository via clean list file
+  copy:
+    dest: /etc/apt/sources.list.d/docker-official.list
+    content: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable"
+    mode: '0644'
+
+- name: Install containerd.io
+  apt:
+    name: containerd.io
+    state: present
+    update_cache: true
+
+- name: Create containerd configuration directory
+  file:
+    path: /etc/containerd
+    state: directory
+    mode: '0755'
+
+- name: Generate default containerd config
+  shell: containerd config default > /etc/containerd/config.toml
+  changed_when: true
+
+- name: Configure containerd to use SystemdCgroup
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+
+- name: Restart and enable containerd service
+  systemd:
+    name: containerd
+    state: restarted
+    enabled: true
+    daemon_reload: true
+
+- name: Download Kubernetes GPG apt Key
+  get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key
+    dest: /etc/apt/keyrings/kubernetes-archive-keyring.asc
+    mode: '0644'
+
+- name: Add Kubernetes Repository via list file
+  copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    content: "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.asc] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /"
+    mode: '0644'
+
+- name: Install Kubernetes components
+  apt:
+    name:
+      - kubelet=1.30.*
+      - kubeadm=1.30.*
+      - kubectl=1.30.*
+    state: present
+    update_cache: true
+
+- name: Prevent Kubernetes components from being automatically upgraded
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
