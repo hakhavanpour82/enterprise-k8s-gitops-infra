@@ -1,0 +1,53 @@
+- name: Download official Helm install script
+  get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get_helm.sh
+    mode: '0700'
+  when: inventory_hostname in groups['masters']
+
+- name: Install Helm 3 (skips silently if already installed)
+  command: /tmp/get_helm.sh
+  args:
+    creates: /usr/local/bin/helm
+  when: inventory_hostname in groups['masters']
+
+- name: Add the Cilium Helm repository
+  command: helm repo add cilium https://helm.cilium.io/
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: helm_repo_add
+  changed_when: "'has been added' in helm_repo_add.stdout"
+  when: inventory_hostname in groups['masters']
+
+- name: Update Helm repositories
+  command: helm repo update
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+  when: inventory_hostname in groups['masters']
+
+- name: Install/upgrade Cilium via Helm
+  command: >
+    helm upgrade --install cilium cilium/cilium
+    --version 1.16.5
+    --namespace kube-system
+    --set ipam.operator.clusterPoolIPv4PodCIDRList=10.244.0.0/16
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: cilium_helm_install
+  changed_when: "'STATUS: deployed' in cilium_helm_install.stdout"
+  when: inventory_hostname in groups['masters']
+
+- name: Wait for Cilium DaemonSet pods to become Ready
+  command: >
+    kubectl -n kube-system rollout status daemonset/cilium --timeout=300s
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: cilium_rollout
+  changed_when: false
+  when: inventory_hostname in groups['masters']
+
+- name: Show Cilium rollout result
+  debug:
+    var: cilium_rollout.stdout
+  when: inventory_hostname in groups['masters']

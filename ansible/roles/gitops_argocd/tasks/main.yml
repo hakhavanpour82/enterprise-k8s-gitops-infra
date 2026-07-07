@@ -1,0 +1,60 @@
+- name: Create argocd namespace
+  command: kubectl create namespace argocd
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: ns_create
+  failed_when:
+    - ns_create.rc != 0
+    - "'AlreadyExists' not in ns_create.stderr"
+  changed_when: ns_create.rc == 0
+  when: inventory_hostname in groups['masters']
+
+- name: Apply official ArgoCD install manifest (server-side to avoid annotation size limit)
+  command: >
+    kubectl apply -n argocd --server-side --force-conflicts
+    -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: argocd_apply
+  changed_when: "'unchanged' not in argocd_apply.stdout"
+  when: inventory_hostname in groups['masters']
+
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: argocd_apply
+  changed_when: "'unchanged' not in argocd_apply.stdout"
+  when: inventory_hostname in groups['masters']
+
+- name: Wait for argocd-server deployment to become available
+  command: >
+    kubectl -n argocd rollout status deployment/argocd-server --timeout=300s
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: argocd_rollout
+  changed_when: false
+  when: inventory_hostname in groups['masters']
+
+- name: Expose ArgoCD server via NodePort for external access
+  command: >
+    kubectl -n argocd patch svc argocd-server
+    -p '{"spec": {"type": "NodePort", "ports": [{"port": 443, "targetPort": 8080, "nodePort": 30443, "name": "https"}]}}'
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: argocd_patch
+  changed_when: "'patched' in argocd_patch.stdout"
+  when: inventory_hostname in groups['masters']
+
+- name: Retrieve ArgoCD initial admin password
+  command: >
+    kubectl -n argocd get secret argocd-initial-admin-secret
+    -o jsonpath="{.data.password}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: argocd_admin_password_b64
+  changed_when: false
+  when: inventory_hostname in groups['masters']
+
+- name: Decode and display ArgoCD admin password
+  debug:
+    msg: "ArgoCD admin password: {{ argocd_admin_password_b64.stdout | b64decode }}"
+  when: inventory_hostname in groups['masters']

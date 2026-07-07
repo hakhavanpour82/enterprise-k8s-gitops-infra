@@ -1,1 +1,6 @@
-.gitignore
+venv/
+secure-keys/
+.env
+*.log
+.ansible_cache/
+

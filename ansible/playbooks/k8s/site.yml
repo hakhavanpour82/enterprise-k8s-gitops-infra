@@ -3,7 +3,9 @@
   hosts: k8s_cluster
   become: true
   gather_facts: true
-
   roles:
     - os_hardening
     - k8s_install
+    - k8s_cluster_init
+    - k8s_cni_cilium
+    - gitops_argocd
