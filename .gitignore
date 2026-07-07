@@ -1,6 +1,31 @@
-venv/
+# --- Secrets: ---
 secure-keys/
-.env
-*.log
-.ansible_cache/
+**/id_ed25519
+**/id_ed25519.pub
+**/*.pem
+**/admin.conf
+ansible/fetched/
+kubeadm-init-output.log
+kubeadm-join-output.log
+*.retry
 
+# --- Ansible ---
+*.vault_pass
+.vault_pass.txt
+ansible/inventory/*.ini.bak
+
+# --- Terraform ---
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+
+# --- Python / general ---
+__pycache__/
+*.pyc
+.DS_Store
+
+# --- Editor ---
+.vscode/
+*.swp
