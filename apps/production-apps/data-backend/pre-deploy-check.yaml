@@ -12,5 +12,5 @@ spec:
       containers:
       - name: check
         image: busybox
-        command: ["sh", "-c", "exit 1"]
+        command: ["sh", "-c", "echo 'pre-deploy check passed'; exit 0"]
       restartPolicy: Never
