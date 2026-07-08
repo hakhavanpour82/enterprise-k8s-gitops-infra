@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-backend
+  namespace: production-apps
+  labels:
+    app: data-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-backend
+  template:
+    metadata:
+      labels:
+        app: data-backend
+    spec:
+      containers:
+      - name: data-backend
+        image: kennethreitz/httpbin:latest
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /status/200
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /status/200
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
