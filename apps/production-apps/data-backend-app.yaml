@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data-backend
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/hakhavanpour82/enterprise-k8s-gitops-infra.git
+    path: apps/production-apps/data-backend
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
